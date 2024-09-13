@@ -1,0 +1,615 @@
+options:
+  parameters:
+    author: pi
+    catch_exceptions: 'True'
+    category: '[GRC Hier Blocks]'
+    cmake_opt: ''
+    comment: ''
+    copyright: ''
+    description: ''
+    gen_cmake: 'On'
+    gen_linking: dynamic
+    generate_options: qt_gui
+    hier_block_src_path: '.:'
+    id: mavlinktest
+    max_nouts: '0'
+    output_language: python
+    placement: (0,0)
+    qt_qss_theme: ''
+    realtime_scheduling: ''
+    run: 'True'
+    run_command: '{python} -u {filename}'
+    run_options: prompt
+    sizing_mode: fixed
+    thread_safe_setters: ''
+    title: Not titled yet
+    window_size: (1000,1000)
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [16, 4.0]
+    rotation: 0
+    state: enabled
+
+blocks:
+- name: samp_rate
+  id: variable
+  parameters:
+    comment: ''
+    value: '32000'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [200, 12.0]
+    rotation: 0
+    state: enabled
+- name: epy_block_0
+  id: epy_block
+  parameters:
+    _source_code: "from gnuradio import gr\nfrom pymavlink import mavutil\nimport\
+      \ numpy\nimport pmt\nimport threading\n\nclass pymavlink_source_sink_pp(gr.basic_block):\n\
+      \    def __init__(self, connection_string='udp:localhost:14550', baud_rate=57600):\n\
+      \        gr.basic_block.__init__(self,\n            name=\"pymavlink_source_sink_pp\"\
+      ,\n            in_sig=[],\n            out_sig=[])\n\n        self.connection_string\
+      \ = connection_string\n        self.baud_rate = baud_rate\n\n        # Register\
+      \ message ports\n        self.message_port_register_in(pmt.intern(\"MAVLink_IN\"\
+      ))\n        self.message_port_register_out(pmt.intern(\"MAVLink_OUT\"))\n  \
+      \      self.set_msg_handler(pmt.intern(\"MAVLink_IN\"), self.mavlink_handler)\n\
+      \n        # Setup MAVLink connection\n        self.mavlink_connection = mavutil.mavlink_connection(connection_string,\
+      \ baud=baud_rate)\n        \n        # Thread for checking for messages\n  \
+      \      self.running = True\n        self.thread = threading.Thread(target=self.check_for_message)\n\
+      \        self.thread.daemon = True\n        self.thread.start()\n\n    def mavlink_handler(self,\
+      \ msg):\n        data = pmt.to_python(pmt.cdr(msg))\n        binarrymavlink\
+      \ = bytearray(data)\n        mavmessage = self.mavlink_connection.mav.decode(binarrymavlink)\n\
+      \        self.mavlink_connection.write(binarrymavlink)\n\n    def check_for_message(self):\n\
+      \        while self.running:\n            self.message = self.mavlink_connection.recv_match(blocking=True,\
+      \ timeout=10)\n            if self.message is not None:\n                if\
+      \ self.message.get_type() == 'BAD_DATA':\n                    continue\n   \
+      \             buf = self.message.get_msgbuf()\n                bufnp = numpy.frombuffer(buf,\
+      \ dtype=numpy.uint8)\n                self.message_port_pub(pmt.intern(\"MAVLink_OUT\"\
+      ), pmt.cons(pmt.PMT_NIL, pmt.to_pmt(bufnp)))\n\n    def __del__(self):\n   \
+      \     self.running = False\n        self.mavlink_connection.close()\n      \
+      \  if self.thread.is_alive():\n            self.thread.join()\n\n    def work(self,\
+      \ input_items, output_items):\n        # Not used in this block, but required\
+      \ for the basic_block\n        return len(input_items[0])\n"
+    affinity: ''
+    alias: ''
+    baud_rate: '921600'
+    comment: ''
+    connection_string: '"/dev/ttyUSB0"'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+  states:
+    _io_cache: ('pymavlink_source_sink_pp', 'pymavlink_source_sink_pp', [('connection_string',
+      "'udp:localhost:14550'"), ('baud_rate', '57600')], [('MAVLink_IN', 'message',
+      1)], [('MAVLink_OUT', 'message', 1)], '', ['baud_rate', 'connection_string'])
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [512, 140.0]
+    rotation: 0
+    state: disabled
+- name: epy_block_1
+  id: epy_block
+  parameters:
+    _source_code: "#!/usr/bin/env python\n# -*- coding: utf-8 -*-\n# \n# Copyright\
+      \ 2017 Oak Ridge National Laboratory.\n# \n# This is free software; you can\
+      \ redistribute it and/or modify\n# it under the terms of the GNU General Public\
+      \ License as published by\n# the Free Software Foundation; either version 3,\
+      \ or (at your option)\n# any later version.\n# \n# This software is distributed\
+      \ in the hope that it will be useful,\n# but WITHOUT ANY WARRANTY; without even\
+      \ the implied warranty of\n# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\
+      \  See the\n# GNU General Public License for more details.\n# \n# You should\
+      \ have received a copy of the GNU General Public License\n# along with this\
+      \ software; see the file COPYING.  If not, write to\n# the Free Software Foundation,\
+      \ Inc., 51 Franklin Street,\n# Boston, MA 02110-1301, USA.\n# \nfrom __future__\
+      \ import print_function\nimport numpy\nfrom gnuradio import gr\nimport threading\n\
+      \nfrom pymavlink import mavutil\nimport pmt\n\nclass pymavlink_source_p(gr.sync_block):\n\
+      \    \"\"\"\n    pymavlink_sink_p generates a pdu version of MAVlink commands\
+      \ from a MAVLink source.  A good simple interface block although the 2 way requirements\
+      \ of MAVlink control makes the use of this block limited\n    \"\"\"\n    def\
+      \ __init__(self, connection_string='udp:localhost:14550', baud_rate=57600):\n\
+      \        gr.sync_block.__init__(self,\n            name=\"pymavlink_source_p\"\
+      ,\n            in_sig=None,\n            out_sig=None)\n        self.connection_string=connection_string\n\
+      \        self.baud_rate=baud_rate\n        #self.message_port_register_in(pmt.intern(\"\
+      command\"))\n        #self.set_msg_handler(pmt.intern(\"command\"), self.cmd_handler)\n\
+      \        self.message_port_register_out(pmt.intern(\"MAVLink\"))\n        self.mavlink_connection\
+      \ = mavutil.mavlink_connection(connection_string,baud=baud_rate)\n        print\
+      \ (self.mavlink_connection)\n        self.running=True\n        #print self.mavlink_connection\n\
+      \        self.thread = threading.Thread(target=self.check_for_message)\n   \
+      \     self.thread.daemon = True\n        self.thread.start()\n    def check_for_message(self):\n\
+      \        # Make an empty dictionary\n        MAVLink_message = pmt.make_dict()\n\
+      \        key =  pmt.intern('mavlink')\n        while(self.running):\n      \
+      \     #print (\"check_for_message in thread\")\n           self.message=self.mavlink_connection.recv_match(blocking=True,timeout=10)\n\
+      \           if self.message!=None:\n            if self.message.get_type() ==\
+      \ 'BAD_DATA':\n                self.message=None\n           if(self.message!=None):\n\
+      \             #print (\"message found\")\n             #print (self.message.get_msgbuf())\n\
+      \             buf=self.message.get_msgbuf()\n             bufnp=numpy.frombuffer(buf,dtype=numpy.uint8)\n\
+      \             #buf=list(buf)\n             #temp={'mavlink':buf}\n         \
+      \    #temp_pmt=pmt.to_pmt(temp)\n             meta='mavlink'\n             self.message_port_pub(pmt.intern(\"\
+      MAVLink\"),pmt.cons(pmt.PMT_NIL,pmt.to_pmt(bufnp)))\n             self.message=None\
+      \    \n    def __del__(self):\n        self.running=False\n        self.mavlink_connection.close()\n\
+      \        self.thread.close()\n    def work(self, input_items, output_items):\n\
+      \        pass\n"
+    affinity: ''
+    alias: ''
+    baud_rate: '921600'
+    comment: ''
+    connection_string: '"/dev/ttyUSB0"'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+  states:
+    _io_cache: ('pymavlink_source_p', 'pymavlink_source_p', [('connection_string',
+      "'udp:localhost:14550'"), ('baud_rate', '57600')], [], [('MAVLink', 'message',
+      1)], '\n    pymavlink_sink_p generates a pdu version of MAVlink commands from
+      a MAVLink source.  A good simple interface block although the 2 way requirements
+      of MAVlink control makes the use of this block limited\n    ', ['baud_rate',
+      'connection_string'])
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [104, 196.0]
+    rotation: 0
+    state: disabled
+- name: epy_block_1_0
+  id: epy_block
+  parameters:
+    _source_code: "import numpy as np\nfrom gnuradio import gr\nimport pmt\nimport\
+      \ os\nfrom gtts import gTTS\nfrom pydub import AudioSegment\n\nclass text_to_wav_block(gr.sync_block):\
+      \  \n    \"\"\"Embedded Python Block example - converts text to WAV and outputs\
+      \ float32 data\"\"\"\n\n    def __init__(self, sample_rate=48000):  \n     \
+      \   \"\"\"arguments to this function show up as parameters in GRC\"\"\"\n  \
+      \      gr.sync_block.__init__(\n            self,\n            name='text_to_wav_block',\
+      \   # will show up in GRC\n            in_sig=[],\n            out_sig=[np.float32]\
+      \  # Output signal as float32\n        )\n        self.sample_rate = sample_rate\n\
+      \        self.text = \"no input\"\n        self.filename = \"output.wav\"\n\
+      \        self.wav_data = np.array([], dtype=np.float32)  # Initialize an empty\
+      \ array for WAV data\n        self.message_port_register_in(pmt.intern(\"MSG_IN\"\
+      ))\n        self.set_msg_handler(pmt.intern(\"MSG_IN\"), self.set_text)\n\n\
+      \    def set_text(self, msg):\n        \"\"\"\n        Sets the text to be converted\
+      \ to WAV.\n        \"\"\"\n        self.text = str(msg)\n        print(msg)\n\
+      \        self.convert_to_wav()\n\n    def convert_to_wav(self):\n        \"\"\
+      \"\n        Converts the stored text to a WAV file and loads the WAV data for\
+      \ output.\n        \"\"\"\n        if self.text:\n            tts = gTTS(text=self.text,\
+      \ lang='en')\n            tts.save(\"temp.mp3\")  # Save as mp3 temporarily\n\
+      \n            # Convert mp3 to wav\n            sound = AudioSegment.from_mp3(\"\
+      temp.mp3\")\n            sound = sound.set_frame_rate(self.sample_rate)  # Ensure\
+      \ correct sample rate\n            sound.export(self.filename, format=\"wav\"\
+      )\n            print(f\"Audio saved as {self.filename}\")\n            \n  \
+      \          # Load the WAV data into memory as a numpy array\n            self.wav_data\
+      \ = np.array(sound.get_array_of_samples(), dtype=np.float32)\n            \n\
+      \            # Normalize the data to the range [-1, 1]\n            self.wav_data\
+      \ /= np.iinfo(np.int16).max\n            \n            # Clean up the temporary\
+      \ mp3 file\n            os.remove(\"temp.mp3\")\n        else:\n           \
+      \ print(\"No text provided for conversion.\")\n\n    def work(self, input_items,\
+      \ output_items):\n        \"\"\"Output the float32 WAV data\"\"\"\n        output_length\
+      \ = len(output_items[0])\n        data_length = len(self.wav_data)\n       \
+      \ \n        # Ensure we don't exceed the length of the WAV data\n        if\
+      \ data_length > 0:\n            output_items[0][:min(output_length, data_length)]\
+      \ = self.wav_data[:min(output_length, data_length)]\n            self.wav_data\
+      \ = self.wav_data[min(output_length, data_length):]  # Update remaining data\n\
+      \        else:\n            output_items[0][:] = 0  # No data to output\n\n\
+      \        return len(output_items[0])\n"
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    sample_rate: samp_rate
+  states:
+    _io_cache: ('text_to_wav_block', 'text_to_wav_block', [('sample_rate', '48000')],
+      [('MSG_IN', 'message', 1)], [('0', 'float', 1)], 'Embedded Python Block example
+      - converts text to WAV and outputs float32 data', ['sample_rate'])
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [720, 228.0]
+    rotation: 0
+    state: disabled
+- name: epy_block_1_0_0
+  id: epy_block
+  parameters:
+    _source_code: "\"\"\"\nEmbedded Python Blocks:\n\nEach time this file is saved,\
+      \ GRC will instantiate the first class it finds\nto get ports and parameters\
+      \ of your block. The arguments to __init__  will\nbe the parameters. All of\
+      \ them are required to have default values!\n\"\"\"\n\nimport numpy as np\n\
+      from gnuradio import gr\nimport pmt\nimport os\nimport numpy as np\nfrom gtts\
+      \ import gTTS\nfrom pydub import AudioSegment\n\nclass text_to_wav_block(gr.sync_block):\
+      \  # other base classes are basic_block, decim_block, interp_block\n    \"\"\
+      \"Embedded Python Block example - a simple multiply const\"\"\"\n\n    def __init__(self,\
+      \ sample_rate=48000):  # only default arguments here\n        \"\"\"arguments\
+      \ to this function show up as parameters in GRC\"\"\"\n        gr.sync_block.__init__(\n\
+      \            self,\n            name='text_to_wav_block',   # will show up in\
+      \ GRC\n            in_sig=[],\n            out_sig=[]\n        )\n        self.sample_rate=sample_rate\n\
+      \        self.text=\"no input\"\n        self.filename = \"output.wav\"\n  \
+      \      self.message_port_register_in(pmt.intern(\"MSG_IN\"))\n        self.set_msg_handler(pmt.intern(\"\
+      MSG_IN\"), self.set_text)\n\n\n        \n    def set_text(self, msg):\n    \
+      \        \"\"\"\n            Sets the text to be converted to WAV.\n       \
+      \     \"\"\"\n            # data = pmt.to_python(pmt.cdr(msg))\n           \
+      \ self.text = str(msg)\n            print(msg)\n            self.convert_to_wav()\n\
+      \    def convert_to_wav(self):\n        \"\"\"\n        Converts the stored\
+      \ text to a WAV file and loads the WAV data for output.\n        \"\"\"\n  \
+      \      if self.text and len(self.text):\n            tts = gTTS(text=self.text,\
+      \ lang='en')\n            tts.save(\"temp.mp3\")  # Save as mp3 temporarily\n\
+      \n            # Convert mp3 to wav\n            sound = AudioSegment.from_mp3(\"\
+      temp.mp3\")\n            sound = sound.set_frame_rate(self.sample_rate)  # Ensure\
+      \ correct sample rate\n            sound.export(self.filename, format=\"wav\"\
+      )\n            print(f\"Audio saved as {self.filename}\")\n            \n  \
+      \          # Load the WAV data into memory as a numpy array\n            # self.wav_data\
+      \ = np.array(sound.get_array_of_samples(), dtype=np.float32)\n            \n\
+      \            # Normalize the data to the range [-1, 1]\n            # self.wav_data\
+      \ /= np.iinfo(np.int16).max\n            \n            # Clean up the temporary\
+      \ mp3 file\n            os.remove(\"temp.mp3\")\n        else:\n           \
+      \ print(\"No text provided for conversion.\")\n\n            \n    def work(self,\
+      \ input_items, output_items):\n        \"\"\"example: multiply with constant\"\
+      \"\"\n        output_items[0][:] = input_items[0] * self.example_param\n   \
+      \     return len(output_items[0])\n"
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    sample_rate: samp_rate
+  states:
+    _io_cache: ('text_to_wav_block', 'text_to_wav_block', [('sample_rate', '48000')],
+      [('MSG_IN', 'message', 1)], [], 'Embedded Python Block example - a simple multiply
+      const', ['sample_rate'])
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [768, 292.0]
+    rotation: 0
+    state: enabled
+- name: epy_block_2
+  id: epy_block
+  parameters:
+    _source_code: "#!/usr/bin/env python\n# -*- coding: utf-8 -*-\n# \n# Copyright\
+      \ 2017 Oak Ridge National Laboratory.\n# \n# This is free software; you can\
+      \ redistribute it and/or modify\n# it under the terms of the GNU General Public\
+      \ License as published by\n# the Free Software Foundation; either version 3,\
+      \ or (at your option)\n# any later version.\n# \n# This software is distributed\
+      \ in the hope that it will be useful,\n# but WITHOUT ANY WARRANTY; without even\
+      \ the implied warranty of\n# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\
+      \  See the\n# GNU General Public License for more details.\n# \n# You should\
+      \ have received a copy of the GNU General Public License\n# along with this\
+      \ software; see the file COPYING.  If not, write to\n# the Free Software Foundation,\
+      \ Inc., 51 Franklin Street,\n# Boston, MA 02110-1301, USA.\n# \n\nfrom __future__\
+      \ import print_function\nimport numpy\nfrom gnuradio import gr\nimport threading\n\
+      \nfrom pymavlink import mavutil\nimport pmt\nfrom builtins import object\n\n\
+      #from pymavlink.dialects.v10 import ardupilotmega as mavlink\n#from pymavlink.dialects.v20\
+      \ import ardupilotmega as mavlink2\n\n\nclass pymavlink_sink_p(gr.sync_block):\n\
+      \    \"\"\"\n    pymavlink_sink_p accepts pdu version of MAVlink commands and\
+      \ submits they to a MAVLink based flight control or GCS.  A good simple interface\
+      \ block although the 2 way requirements of MAVlink control makes the use of\
+      \ this block limited\n    \"\"\"\n    def __init__(self, connection_string='udp:localhost:14550',baud_rate=57600):\n\
+      \        gr.sync_block.__init__(self,\n            name=\"pymavlink_sink_p\"\
+      ,\n            in_sig=None,\n            out_sig=None)\n        self.connection_string=connection_string\n\
+      \        self.baud_rate=baud_rate\n        #self.message_port_register_in(pmt.intern(\"\
+      command\"))\n        #self.set_msg_handler(pmt.intern(\"command\"), self.cmd_handler)\n\
+      \        self.message_port_register_in(pmt.intern(\"MAVLink\"))\n        self.mavlink_connection\
+      \ = mavutil.mavlink_connection(connection_string,baud=baud_rate)\n        self.set_msg_handler(pmt.intern(\"\
+      MAVLink\"), self.mavlink_handler) \n        print (self.mavlink_connection)\n\
+      \            # we will use a fifo as an encode/decode buffer\n             \
+      \   \n    def mavlink_handler(self,msg):\n        meta = pmt.car(msg);\n   \
+      \     data = pmt.to_python(pmt.cdr(msg));\n        #turn message back to buf\
+      \ to send through the connection\n        #data = pmt.to_python((msg))\n   \
+      \     #print (type(data))\n        #print (data['mavlink'])\n        binarrymavlink=bytearray(data)\n\
+      \        mavmessage=self.mavlink_connection.mav.decode(binarrymavlink)\n   \
+      \     #print(mavmessage)\n        self.mavlink_connection.write(binarrymavlink)\n\
+      \        #ref = pmt.dict_ref(data, key0, pmt.PMT_NIL)\n        #print (ref)\n\
+      \    def __del__(self):\n        self.mavlink_connection.close()\n        \n\
+      \    def work(self, input_items, output_items):\n        pass\n"
+    affinity: ''
+    alias: ''
+    baud_rate: '921600'
+    comment: ''
+    connection_string: '"/dev/ttyUSB0"'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+  states:
+    _io_cache: ('pymavlink_sink_p', 'pymavlink_sink_p', [('connection_string', "'udp:localhost:14550'"),
+      ('baud_rate', '57600')], [('MAVLink', 'message', 1)], [], '\n    pymavlink_sink_p
+      accepts pdu version of MAVlink commands and submits they to a MAVLink based
+      flight control or GCS.  A good simple interface block although the 2 way requirements
+      of MAVlink control makes the use of this block limited\n    ', ['baud_rate',
+      'connection_string'])
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [120, 300.0]
+    rotation: 0
+    state: disabled
+- name: epy_block_3
+  id: epy_block
+  parameters:
+    _source_code: "#!/usr/bin/env python\n# -*- coding: utf-8 -*-\n# \n# Copyright\
+      \ 2017 Oak Ridge National Laboratory.\n# \n# This is free software; you can\
+      \ redistribute it and/or modify\n# it under the terms of the GNU General Public\
+      \ License as published by\n# the Free Software Foundation; either version 3,\
+      \ or (at your option)\n# any later version.\n# \n# This software is distributed\
+      \ in the hope that it will be useful,\n# but WITHOUT ANY WARRANTY; without even\
+      \ the implied warranty of\n# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\
+      \  See the\n# GNU General Public License for more details.\n# \n# You should\
+      \ have received a copy of the GNU General Public License\n# along with this\
+      \ software; see the file COPYING.  If not, write to\n# the Free Software Foundation,\
+      \ Inc., 51 Franklin Street,\n# Boston, MA 02110-1301, USA.\n# \n\nfrom __future__\
+      \ import print_function\nimport numpy\nfrom gnuradio import gr\nimport threading\n\
+      import datetime as dt\nimport time\n\nfrom pymavlink import mavutil\nimport\
+      \ pmt\nfrom builtins import object\n\n#from pymavlink.dialects.v10 import ardupilotmega\
+      \ as mavlink\n\nclass mavlink_control(gr.sync_block):\n    \"\"\"\n    This\
+      \ is used to receive messages from a control gui for flight control of a MAVLink\
+      \ device.  This block turns PMT control messages into MAVLink messages.  This\
+      \ block creates two instances of pymavlink connections to handle the data flow.\
+      \  This currently emulates the basics of a GCS and provides data in such a way\
+      \ that MavProxy can connect to it for debugging processes.  This block also\
+      \ sends 1 second heartbeat messages to maintain the MAVLink link with a pixhawk\
+      \ flight controller.\n    \"\"\"\n    def __init__(self, connection_string=\"\
+      0.0.0.0:14400\",baud_rate=57600):\n        gr.sync_block.__init__(self,\n  \
+      \          name=\"mavlink_control\",\n            in_sig=None,\n           \
+      \ out_sig=None)\n\n\n        self.connection_string=connection_string\n    \
+      \    self.baud_rate=baud_rate\n        #self.message_port_register_in(pmt.intern(\"\
+      command\"))\n        #self.set_msg_handler(pmt.intern(\"command\"), self.cmd_handler)\n\
+      \        self.message_port_register_in(pmt.intern(\"MAVLink_IN\"))\n       \
+      \ self.message_port_register_in(pmt.intern(\"Command\"))\n        self.message_port_register_out(pmt.intern(\"\
+      MAVLink_OUT\"))\n        self.mavlink_connection = mavutil.mavlink_connection('udpout:'+connection_string,baud=baud_rate)\n\
+      \        self.mavlink2=mavutil.mavlink_connection('udpin:'+connection_string,baud=baud_rate)\n\
+      \        self.set_msg_handler(pmt.intern(\"MAVLink_IN\"), self.mavlink_handler)\n\
+      \        self.set_msg_handler(pmt.intern(\"Command\"), self.command_handler)\n\
+      \        print (self.mavlink_connection)\n        self.running=True\n      \
+      \  self.takeoff=0\n        #print self.mavlink_connection\n        self.thread\
+      \ = threading.Thread(target=self.check_for_message)\n        self.thread.daemon\
+      \ = True\n        self.thread.start()\n        self.thread2 = threading.Thread(target=self.check_for_message2)\n\
+      \        self.thread2.daemon = True\n        self.thread2.start()\n        self.data=data=[0]*8\n\
+      \        self.last_heartbeat_time=dt.datetime.now()\n        self.thread3=threading.Thread(target=self.send_heartbeat)\n\
+      \        self.thread3.daemon = True\n        self.thread3.start()\n        \n\
+      \    \n    def set_land(self):\n        self.takeoff=0\n        self.mavlink2.set_mode('LAND')\n\
+      \    \n    #def set_servo(self,data):\n    #    print(self.data)\n    #    print(data)\n\
+      \    #    for i in range (3):\n    #        if self.data[i] != data[i]:\n  \
+      \  #            self.mavlink2.set_servo(i+1,data[i])\n    #            print('servo\
+      \ ' + str(i+1) + 'set to ' +str(data[i]))\n        #self.mavlink2.set_servo(channel,pwm)\n\
+      \    def set_channel_overrides(self,data):\n         #using set_overrides prevenet\
+      \ the controler of solo from taking command of a out of control UAS\n      \
+      \   #self.set_servo(data) #temporary replace for test test set_channel_overrides\n\
+      \         self.mavlink2.mav.rc_channels_override_send(\n\t\t\tself.mavlink2.target_system,\
+      \ self.mavlink2.target_component, *data)\n    \n    def arm_and_takeoff(self,data):\n\
+      \        #current_location=self.mavlink_connection.location(True)\n        #print\
+      \ (current_location)\n        if (self.takeoff==1):\n            print ('currently\
+      \ in takeoff mode, switch to land mode before attempting again')\n         \
+      \   return\n        self.last_heartbeat_time=dt.datetime.now()\n        self.takeoff=1\n\
+      \        print (\"hold\")\n \n        #data=[0]*8\n        #should be 1500 for\
+      \ alt_hold\n        self.data[0]=data[0]\n        self.data[1]=data[1]\n   \
+      \     self.data[2]=data[2]\n        \n        print('before overide')\n    \
+      \    self.set_channel_overrides(self.data)\n        time.sleep(0.5)\n      \
+      \  #Get the motors working after arming (stablilze requires an input)\n    \
+      \    #print('set servos')\n        #self.mavlink2.set_relay(1)\n        #self.mavlink2.set_relay(2)\n\
+      \        #self.mavlink2.set_relay(3)\n        #self.mavlink2.set_servo(1,self.data[0])\n\
+      \        #self.mavlink2.set_servo(2,self.data[1])\n        #self.mavlink2.set_servo(3,self.data[2])\n\
+      \        #print(self.data)\n        #print('after servo')\n        if(data[7]==0):\n\
+      \          self.mavlink2.set_mode('STABILIZE')\n        elif(data[7]==1):\n\
+      \          self.mavlink2.set_mode('ALT_HOLD')\n        elif(data[7]==2):\n \
+      \         self.mavlink2.set_mode('LOITER')\n        time.sleep(0.5)\n      \
+      \  print('first set')\n        \n        if not self.mavlink2.motors_armed():\
+      \ # Function to check if UAV is armed\n          print('in_Armed')\n       \
+      \   self.mavlink2.arducopter_arm() # Function to ARM the UAV\n          time.sleep(0.3)\n\
+      \          print('Armed called')\n          #Do not proceed until the UAV is\
+      \ armed\n          #self.mavlink2.motors_armed_wait() # Function to wait till\
+      \ the UAV is armed\n          print ('Armed wait')\n          \n          #give\
+      \ up throttle\n          #self.data[2]=self.data[2]+150\n          tempdata=[0]*8\n\
+      \          tempdata[0]=data[0]\n          tempdata[1]=data[1]\n          tempdata[2]=data[2]\n\
+      \          tempdata[2]=tempdata[2]+200\n          print('before override set')\n\
+      \          #self.set_servo(tempdata)\n          self.set_channel_overrides(tempdata)\n\
+      \          \n          print('after override')\n          \n          \n   \
+      \         \n    def command_handler(self,msg):\n        print ('receive message')\n\
+      \        meta =  pmt.to_python(pmt.car(msg))\n        data = pmt.to_python(pmt.cdr(msg))\n\
+      \        print (meta)\n        print (data)\n        if meta == 'takeoff':\n\
+      \           print ('call takeoff')\n           self.arm_and_takeoff(data)\n\
+      \        elif meta == 'rc_override':\n           print (data)\n           #self.data=data\n\
+      \           print ('rc_override')\n           #self.set_servo(data)\n      \
+      \     self.set_channel_overrides(data)\n           self.data=data\n        elif\
+      \ meta == 'land':\n           print('land')\n           self.set_land()\n  \
+      \      elif meta == 'disarm':\n           print('disarm')\n           self.disarm()\
+      \ \n        elif meta == 'heartbeat':\n           print('heartbeat')\n     \
+      \      self.receive_hearbeat()\n           \n    def mavlink_handler(self,msg):\n\
+      \        meta = pmt.car(msg)\n        data = pmt.to_python(pmt.cdr(msg))\n \
+      \       binarrymavlink=bytearray(data)\n        mavmessage=self.mavlink_connection.mav.decode(binarrymavlink)\n\
+      \        #print(mavmessage)\n        self.mavlink_connection.write(binarrymavlink)\n\
+      \       \n    def send_heartbeat(self):\n        self.mavlink2.wait_heartbeat()\n\
+      \        while(self.running):\n          if (self.takeoff!=0):\n           \
+      \ currentimem5=dt.datetime.now()-dt.timedelta(seconds=5)\n            print('in\
+      \ send_heartbeat')\n            print(currentimem5)\n            print(self.last_heartbeat_time)\n\
+      \            if(currentimem5>self.last_heartbeat_time): #if we have missed all\
+      \ messages for more than 5 seconds\n              print('lost link')\n     \
+      \         self.set_land()\n              \n            if (self.takeoff!=0):\n\
+      \              self.mavlink2.mav.heartbeat_send(mavutil.mavlink.MAV_TYPE_GCS,\
+      \ mavutil.mavlink.MAV_AUTOPILOT_INVALID,\n                                 \
+      \ 0, 0, 0)\n              self.set_channel_overrides(self.data)\n          time.sleep(1.0)\n\
+      \    def disarm(self):\n        self.data[0]=0\n        self.data[1]=0\n   \
+      \     self.data[2]=0\n        self.mavlink2.arducopter_disarm()\n    \n    def\
+      \ receive_hearbeat(self):\n        print('heartbeat received')\n        self.last_heartbeat_time=dt.datetime.now()\n\
+      \        print(self.last_heartbeat_time)\n    \n    def check_for_message(self):\n\
+      \        # Make an empty dictionary\n        MAVLink_message = pmt.make_dict()\n\
+      \        key =  pmt.intern('mavlink')\n        while(self.running):\n      \
+      \     #print (\"check_for_message in thread\")\n           self.message=self.mavlink_connection.recv_match(blocking=True,\
+      \ timeout=10)\n           if self.message!=None:\n            if self.message.get_type()\
+      \ == 'BAD_DATA':\n                self.message=None\n           if(self.message!=None):\n\
+      \             #print (\"message_1 found\")\n             #print (self.message)\n\
+      \             buf=self.message.get_msgbuf()\n             bufnp=numpy.frombuffer(buf,dtype=numpy.uint8)\n\
+      \             meta='mavlink'\n             self.message_port_pub(pmt.intern(\"\
+      MAVLink_OUT\"),pmt.cons(pmt.PMT_NIL,pmt.to_pmt(bufnp)))\n             self.message=None\
+      \        \n    \n    \n    def check_for_message2(self):\n        # Make an\
+      \ empty dictionary\n        MAVLink_message = pmt.make_dict()\n        key =\
+      \  pmt.intern('mavlink')\n        while(self.running):\n           #print (\"\
+      check_for_message in thread\")\n           self.message2=self.mavlink2.recv_match(blocking=True,\
+      \ timeout=10)\n           if self.message2!=None:\n            if self.message2.get_type()\
+      \ == 'BAD_DATA':\n                self.message2=None\n           if(self.message2!=None):\n\
+      \             #print (\"message_2 found\")\n             #print (self.message2)\n\
+      \             buf=self.message2.get_msgbuf()\n             bufnp=numpy.frombuffer(buf,dtype=numpy.uint8)\n\
+      \             meta='mavlink'\n             #self.message_port_pub(pmt.intern(\"\
+      MAVLink_OUT\"),pmt.cons(pmt.PMT_NIL,pmt.to_pmt(bufnp)))\n             self.message2=None\
+      \    \n    \n    def __del__(self):\n        self.running=False\n        self.mavlink_connection.close()\n\
+      \        self.mavlink2.close()\n        self.thread.close()       \n       \
+      \ self.thread2.close()\n        self.thread3.close()\n        \n       \n\n\
+      \    def work(self, input_items, output_items):\n        pass\n"
+    affinity: ''
+    alias: ''
+    baud_rate: '921600'
+    comment: ''
+    connection_string: '""'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+  states:
+    _io_cache: ('mavlink_control', 'mavlink_control', [('connection_string', "'0.0.0.0:14400'"),
+      ('baud_rate', '57600')], [('MAVLink_IN', 'message', 1), ('Command', 'message',
+      1)], [('MAVLink_OUT', 'message', 1)], '\n    This is used to receive messages
+      from a control gui for flight control of a MAVLink device.  This block turns
+      PMT control messages into MAVLink messages.  This block creates two instances
+      of pymavlink connections to handle the data flow.  This currently emulates the
+      basics of a GCS and provides data in such a way that MavProxy can connect to
+      it for debugging processes.  This block also sends 1 second heartbeat messages
+      to maintain the MAVLink link with a pixhawk flight controller.\n    ', ['baud_rate',
+      'connection_string'])
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [688, 44.0]
+    rotation: 0
+    state: disabled
+- name: epy_block_4
+  id: epy_block
+  parameters:
+    _source_code: "#!/usr/bin/env python\n# -*- coding: utf-8 -*-\n# \n# Copyright\
+      \ 2017 Oak Ridge National Laboratory.\n# \n# This is free software; you can\
+      \ redistribute it and/or modify\n# it under the terms of the GNU General Public\
+      \ License as published by\n# the Free Software Foundation; either version 3,\
+      \ or (at your option)\n# any later version.\n# \n# This software is distributed\
+      \ in the hope that it will be useful,\n# but WITHOUT ANY WARRANTY; without even\
+      \ the implied warranty of\n# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\
+      \  See the\n# GNU General Public License for more details.\n# \n# You should\
+      \ have received a copy of the GNU General Public License\n# along with this\
+      \ software; see the file COPYING.  If not, write to\n# the Free Software Foundation,\
+      \ Inc., 51 Franklin Street,\n# Boston, MA 02110-1301, USA.\n# \n\nimport numpy\n\
+      from gnuradio import gr\nimport pmt\n\nclass pdu_control_to_pdu_vector(gr.sync_block):\n\
+      \    \"\"\"\n    pdu_control_to_pdu_vector converts a control message from pdu\
+      \ sent over zmq to a vector of 8 bit ints required for packet based processin.\
+      \  It also incodes message infromation into the data\n    \"\"\"\n    def __init__(self):\n\
+      \        gr.sync_block.__init__(self,\n            name=\"pdu_control_to_pdu_vector\"\
+      ,\n            in_sig=None,\n            out_sig=None)\n        self.message_port_register_in(pmt.intern(\"\
+      Control_IN\"))\n        self.message_port_register_out(pmt.intern(\"Vector_OUT\"\
+      ))\n        self.data=[0]*9\n        self.set_msg_handler(pmt.intern(\"Control_IN\"\
+      ), self.control_handler)\n        \n    def control_handler(self,msg):\n   \
+      \     meta =  pmt.to_python(pmt.car(msg))\n        data = pmt.to_python(pmt.cdr(msg))\n\
+      \        #print data\n        if meta == 'takeoff':\n           self.data[8]=1\n\
+      \        elif meta == 'land':\n           self.data[8]=2   \n        elif meta\
+      \ == 'rc_override':\n           self.data[8]=3\n           print (data)\n  \
+      \      elif meta == 'disarm':\n           self.data[8]=4\n        elif meta\
+      \ == 'heartbeat':\n            self.data[8]=5\n        self.data[0]=data[0]\n\
+      \        self.data[1]=data[1]\n        self.data[2]=data[2]\n        self.data[7]=data[7]\n\
+      \        ndata=numpy.array(self.data,dtype=numpy.int32)\n        nbytes=ndata.tobytes()\n\
+      \        bufnp=numpy.frombuffer(nbytes,dtype=numpy.uint8)\n        \n      \
+      \  self.message_port_pub(pmt.intern(\"Vector_OUT\"),pmt.cons(pmt.PMT_NIL,pmt.to_pmt(bufnp)))\n\
+      \       \n    def work(self, input_items, output_items):\n        pass\n"
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+  states:
+    _io_cache: ('pdu_control_to_pdu_vector', 'pdu_control_to_pdu_vector', [], [('Control_IN',
+      'message', 1)], [('Vector_OUT', 'message', 1)], '\n    pdu_control_to_pdu_vector
+      converts a control message from pdu sent over zmq to a vector of 8 bit ints
+      required for packet based processin.  It also incodes message infromation into
+      the data\n    ', [])
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [392, 8.0]
+    rotation: 0
+    state: disabled
+- name: epy_block_5
+  id: epy_block
+  parameters:
+    _source_code: "#!/usr/bin/env python\n# -*- coding: utf-8 -*-\n# \n# Copyright\
+      \ 2017 Oak Ridge National Laboratory.\n# \n# This is free software; you can\
+      \ redistribute it and/or modify\n# it under the terms of the GNU General Public\
+      \ License as published by\n# the Free Software Foundation; either version 3,\
+      \ or (at your option)\n# any later version.\n# \n# This software is distributed\
+      \ in the hope that it will be useful,\n# but WITHOUT ANY WARRANTY; without even\
+      \ the implied warranty of\n# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\
+      \  See the\n# GNU General Public License for more details.\n# \n# You should\
+      \ have received a copy of the GNU General Public License\n# along with this\
+      \ software; see the file COPYING.  If not, write to\n# the Free Software Foundation,\
+      \ Inc., 51 Franklin Street,\n# Boston, MA 02110-1301, USA.\n# \n\nimport numpy\n\
+      from gnuradio import gr\nimport pmt\n\nclass pdu_vector_to_pdu_control(gr.sync_block):\n\
+      \    \"\"\"\n    pdu_vector_to_pdu_control converts a pdu vector of 8 bit ints\
+      \ into a pdu control message designed for further processing in the system.\
+      \  It also incodes message information into the data vector\n    \"\"\"\n  \
+      \  def __init__(self):\n        gr.sync_block.__init__(self,\n            name=\"\
+      pdu_vector_to_pdu_control\",\n            in_sig=None,\n            out_sig=None)\n\
+      \        self.message_port_register_in(pmt.intern(\"Vector_IN\"))\n        self.message_port_register_out(pmt.intern(\"\
+      Control_OUT\"))\n        self.data=[0]*8\n        self.set_msg_handler(pmt.intern(\"\
+      Vector_IN\"), self.vector_handler)\n\n    def vector_handler(self,msg):\n  \
+      \      meta =  pmt.to_python(pmt.car(msg))\n        databuf = pmt.to_python(pmt.cdr(msg))\n\
+      \        data=numpy.frombuffer(databuf,dtype=numpy.uint32)\n        print (\"\
+      vector handler\")\n        print (data)\n        self.data[0]=int(data[0])\n\
+      \        self.data[1]=int(data[1])\n        self.data[2]=int(data[2])\n    \
+      \    self.data[7]=int(data[7])\n        if(data[8]==1):\n          meta = pmt.to_pmt('takeoff')\n\
+      \          pmtdata = pmt.to_pmt(self.data)\n          msg=pmt.cons(meta, pmtdata)\n\
+      \        elif(data[8]==2):\n          meta = pmt.to_pmt('land')\n          pmtdata\
+      \ = pmt.to_pmt(self.data)\n          msg=pmt.cons(meta, pmtdata)  \n       \
+      \ elif(data[8]==3):\n          meta = pmt.to_pmt('rc_override')\n          pmtdata\
+      \ = pmt.to_pmt(self.data)\n          msg=pmt.cons(meta, pmtdata)\n        elif(data[8]==4):\n\
+      \          meta = pmt.to_pmt('disarm')\n          pmtdata = pmt.to_pmt(self.data)\n\
+      \          msg=pmt.cons(meta, pmtdata)\n        elif(data[8]==5):\n        \
+      \  meta = pmt.to_pmt('heartbeat')\n          pmtdata = pmt.to_pmt(self.data)\n\
+      \          msg=pmt.cons(meta, pmtdata)\n        self.message_port_pub(pmt.intern(\"\
+      Control_OUT\"),msg)\n        \n    def work(self, input_items, output_items):\n\
+      \        pass\n"
+    affinity: ''
+    alias: ''
+    comment: ''
+    maxoutbuf: '0'
+    minoutbuf: '0'
+  states:
+    _io_cache: ('pdu_vector_to_pdu_control', 'pdu_vector_to_pdu_control', [], [('Vector_IN',
+      'message', 1)], [('Control_OUT', 'message', 1)], '\n    pdu_vector_to_pdu_control
+      converts a pdu vector of 8 bit ints into a pdu control message designed for
+      further processing in the system.  It also incodes message information into
+      the data vector\n    ', [])
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [384, 48.0]
+    rotation: 0
+    state: disabled
+- name: qtgui_edit_box_msg_0_0
+  id: qtgui_edit_box_msg
+  parameters:
+    affinity: ''
+    alias: ''
+    comment: ''
+    gui_hint: ''
+    is_pair: 'False'
+    is_static: 'False'
+    key: ''
+    label: '"enter message"'
+    maxoutbuf: '0'
+    minoutbuf: '0'
+    type: string
+    value: '"hello world"'
+  states:
+    bus_sink: false
+    bus_source: false
+    bus_structure: null
+    coordinate: [360, 268.0]
+    rotation: 0
+    state: enabled
+
+connections:
+- [qtgui_edit_box_msg_0_0, msg, epy_block_1_0, MSG_IN]
+- [qtgui_edit_box_msg_0_0, msg, epy_block_1_0_0, MSG_IN]
+
+metadata:
+  file_format: 1
+  grc_version: 3.10.5.1
